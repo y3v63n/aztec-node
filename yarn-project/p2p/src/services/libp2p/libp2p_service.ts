@@ -463,8 +463,12 @@ export class LibP2PService extends WithTracer implements P2PService {
       ],
       datastore,
       peerDiscovery,
-      // Pin the yamux frame size: MAX_REQRESP_REQUEST_SIZE_BYTES relies on a reqresp request fitting in one frame.
-      streamMuxers: [yamux({ maxMessageSize: YAMUX_MAX_MESSAGE_SIZE_BYTES }), mplex()],
+      // Pin both muxers to the yamux frame size: MAX_REQRESP_REQUEST_SIZE_BYTES relies on a reqresp request
+      // fitting in one frame, and mplex would otherwise allow 1 MiB frames.
+      streamMuxers: [
+        yamux({ maxMessageSize: YAMUX_MAX_MESSAGE_SIZE_BYTES }),
+        mplex({ maxMsgSize: YAMUX_MAX_MESSAGE_SIZE_BYTES }),
+      ],
       connectionEncryption: [noise()],
       connectionManager: {
         minConnections: 0, // Disable libp2p peer dialing, we do it manually

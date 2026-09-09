@@ -472,7 +472,16 @@ export class ReqResp implements ReqRespInterface {
         // Process only the first chunk and return, so extra frames a peer queues on the same stream cannot
         // drive further handler invocations that bypass the per-stream rate-limit check in streamHandler.
         for await (const chunk of source) {
-          const response = await handler(connection.remotePeer, chunk.subarray());
+          const request = chunk.subarray();
+          // Both muxers are pinned to the frame size (see libp2p_service), so the first chunk is within
+          // this bound; this guard is defense-in-depth if a muxer or peer ever exceeds it. sendRequest
+          // bounds outbound.
+          if (request.byteLength > MAX_REQRESP_REQUEST_SIZE_BYTES) {
+            stream.metadata.written = true;
+            yield Uint8Array.of(ReqRespStatus.BADLY_FORMED_REQUEST);
+            return;
+          }
+          const response = await handler(connection.remotePeer, request);
 
           if (protocol === ReqRespSubProtocol.GOODBYE) {
             // NOTE: The stream was already closed by Goodbye handler
